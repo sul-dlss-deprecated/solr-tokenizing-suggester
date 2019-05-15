@@ -18,6 +18,7 @@ package edu.stanford.dlss.search.suggest.analyzing;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -27,11 +28,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.AnalyzerWrapper;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.ngram.EdgeNGramTokenFilter;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
@@ -69,6 +72,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopFieldCollector;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.grouping.GroupingSearch;
 import org.apache.lucene.search.grouping.TopGroups;
 import org.apache.lucene.search.suggest.InputIterator;
@@ -365,8 +369,8 @@ public class TokenizingSuggester extends Lookup implements Closeable {
                         : "no need \"textgrams\" when minPrefixChars="+minPrefixChars;
                 if (fieldName.equals(TEXTGRAMS_FIELD_NAME) && minPrefixChars > 0) {
                     // TODO: should use an EdgeNGramTokenFilterFactory here
-                    TokenFilter filter = new EdgeNGramTokenFilter(components.getTokenStream(), 1, minPrefixChars);
-                    return new TokenStreamComponents(components.getTokenizer(), filter);
+                    TokenFilter filter = new EdgeNGramTokenFilter(components.getTokenStream(), 1, minPrefixChars, false);
+                    return new TokenStreamComponents(components.getSource(), filter);
                 } else {
                     return components;
                 }
@@ -674,7 +678,7 @@ public class TokenizingSuggester extends Lookup implements Closeable {
         //System.out.println("finalQuery=" + finalQuery);
 
         // Sort by weight, descending:
-        TopFieldCollector c = TopFieldCollector.create(SORT, num, true, false, false, false);
+        TopFieldCollector c = TopFieldCollector.create(SORT, num, 1);
         List<LookupResult> results = null;
         SearcherManager mgr;
         IndexSearcher searcher;
@@ -717,7 +721,7 @@ public class TokenizingSuggester extends Lookup implements Closeable {
             ScoreDoc fd = hits.groups[i].scoreDocs[0];
             BytesRef term = (BytesRef) hits.groups[i].groupValue;
             String text = term.utf8ToString();
-            long score = hits.groups[i].totalHits;
+            long score = hits.groups[i].totalHits.value;
 
             // This will just be null if app didn't pass payloads to build():
             // TODO: maybe just stored fields?  they compress...
