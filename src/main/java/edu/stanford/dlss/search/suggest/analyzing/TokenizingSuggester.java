@@ -365,8 +365,8 @@ public class TokenizingSuggester extends Lookup implements Closeable {
                         : "no need \"textgrams\" when minPrefixChars="+minPrefixChars;
                 if (fieldName.equals(TEXTGRAMS_FIELD_NAME) && minPrefixChars > 0) {
                     // TODO: should use an EdgeNGramTokenFilterFactory here
-                    TokenFilter filter = new EdgeNGramTokenFilter(components.getTokenStream(), 1, minPrefixChars);
-                    return new TokenStreamComponents(components.getTokenizer(), filter);
+                    TokenFilter filter = new EdgeNGramTokenFilter(components.getTokenStream(), 1, minPrefixChars, false);
+                    return new TokenStreamComponents(components.getSource(), filter);
                 } else {
                     return components;
                 }
@@ -674,7 +674,7 @@ public class TokenizingSuggester extends Lookup implements Closeable {
         //System.out.println("finalQuery=" + finalQuery);
 
         // Sort by weight, descending:
-        TopFieldCollector c = TopFieldCollector.create(SORT, num, true, false, false, false);
+        TopFieldCollector c = TopFieldCollector.create(SORT, num, 1);
         List<LookupResult> results = null;
         SearcherManager mgr;
         IndexSearcher searcher;
@@ -717,7 +717,7 @@ public class TokenizingSuggester extends Lookup implements Closeable {
             ScoreDoc fd = hits.groups[i].scoreDocs[0];
             BytesRef term = (BytesRef) hits.groups[i].groupValue;
             String text = term.utf8ToString();
-            long score = hits.groups[i].totalHits;
+            long score = hits.groups[i].totalHits.value;
 
             // This will just be null if app didn't pass payloads to build():
             // TODO: maybe just stored fields?  they compress...
